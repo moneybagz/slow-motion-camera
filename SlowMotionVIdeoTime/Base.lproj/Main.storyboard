@@ -33,7 +33,6 @@
                                         </constraints>
                                         <state key="normal" title="SLOW"/>
                                         <connections>
-                                            <action selector="slowButton:" destination="BYZ-38-t0r" eventType="touchUpInside" id="s4x-1G-ohe"/>
                                             <action selector="slowButtonPressed:" destination="BYZ-38-t0r" eventType="touchUpInside" id="d0J-a0-XoP"/>
                                         </connections>
                                     </button>
@@ -45,7 +44,6 @@
                                         </constraints>
                                         <state key="normal" title="NORMAL"/>
                                         <connections>
-                                            <action selector="normalButton:" destination="BYZ-38-t0r" eventType="touchUpInside" id="EmQ-O9-h69"/>
                                             <action selector="normalButtonPressed:" destination="BYZ-38-t0r" eventType="touchUpInside" id="sbE-xJ-f9a"/>
                                         </connections>
                                     </button>

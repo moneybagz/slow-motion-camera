@@ -9,6 +9,7 @@
 #import "CameraViewController.h"
 #import "CameraPreviewView.h"
 @import AVFoundation;
+@import CoreMedia;
 
 #define TimeStamp [NSString stringWithFormat:@"%f",[[NSDate date] timeIntervalSince1970] * 1000]
 
@@ -35,7 +36,7 @@ typedef NS_ENUM( NSInteger, AVCamSetupResult ) {
 @property (nonatomic) AVCaptureMovieFileOutput *movieFileOutput;
 @property (nonatomic) AVCaptureStillImageOutput *stillImageOutput;
 @property (nonatomic, strong) NSURL *fileURL;
-
+@property BOOL slowMoBool;
 
 // Utilities.
 @property (nonatomic) AVCamSetupResult setupResult;
@@ -242,9 +243,14 @@ typedef NS_ENUM( NSInteger, AVCamSetupResult ) {
                 //BOOL
                 self.sessionRunning = self.session.isRunning;
                 
-                self.slowButton.enabled = YES;
-                self.normalButton.enabled = YES;
-                self.recordButton.enabled = YES;
+                dispatch_async( dispatch_get_main_queue(), ^{
+                    
+                    self.slowButton.enabled = YES;
+                    self.normalButton.enabled = YES;
+                    self.recordButton.enabled = YES;
+                    
+                    
+                });
                 
                 break;
             }
@@ -295,8 +301,17 @@ typedef NS_ENUM( NSInteger, AVCamSetupResult ) {
 }
 
 - (IBAction)slowButtonPressed:(id)sender {
+    
+    dispatch_async( dispatch_get_main_queue(), ^{
+        
+        self.slowMoBool = YES;
+        NSLog(@"slow");
+        
+    });
 }
 - (IBAction)normalButtonPressed:(id)sender {
+    self.slowMoBool = NO;
+    NSLog(@"normal");
 }
 - (IBAction)recordButtonPressed:(id)sender {
     // REC START
@@ -364,6 +379,7 @@ typedef NS_ENUM( NSInteger, AVCamSetupResult ) {
             
             [self.movieFileOutput stopRecording];
             
+            
             dispatch_async( dispatch_get_main_queue(), ^{
                 
                 [self.recordButton setTitle:@"RECORD" forState:normal];
@@ -399,6 +415,234 @@ typedef NS_ENUM( NSInteger, AVCamSetupResult ) {
 - (IBAction)libraryButtonPressed:(id)sender {
 }
 
+
+
+- (void)SlowMotion2:(NSURL *)URl
+{
+    AVURLAsset* videoAsset = [AVURLAsset URLAssetWithURL:URl options:nil]; //self.inputAsset;
+    
+    //create mutable composition
+    AVMutableComposition *mixComposition = [AVMutableComposition composition];
+    
+    AVMutableCompositionTrack *compositionVideoTrack = [mixComposition addMutableTrackWithMediaType:AVMediaTypeVideo
+                                                                                   preferredTrackID:kCMPersistentTrackID_Invalid];
+    NSError *videoInsertError = nil;
+    BOOL videoInsertResult = [compositionVideoTrack insertTimeRange:CMTimeRangeMake(kCMTimeZero, videoAsset.duration)
+                                                            ofTrack:[[videoAsset tracksWithMediaType:AVMediaTypeVideo] objectAtIndex:0]
+                                                             atTime:kCMTimeZero
+                                                              error:&videoInsertError];
+    if (!videoInsertResult || nil != videoInsertError) {
+        //handle error
+        return;
+    }
+    
+    //slow down whole video by 2.0
+    double videoScaleFactor = 2.0;
+    CMTime videoDuration = videoAsset.duration;
+    
+    [compositionVideoTrack scaleTimeRange:CMTimeRangeMake(kCMTimeZero, videoDuration)
+                               toDuration:CMTimeMake(videoDuration.value*videoScaleFactor, videoDuration.timescale)];
+    
+    //export
+    AVAssetExportSession *exportSession = [[AVAssetExportSession alloc] initWithAsset:mixComposition presetName:AVAssetExportPresetLowQuality];
+    
+    exportSession.outputURL = URl;
+    exportSession.outputFileType = AVFileTypeQuickTimeMovie;
+    [exportSession exportAsynchronouslyWithCompletionHandler:^(void) {
+        if (exportSession.status == AVAssetExportSessionStatusCompleted) {
+            NSLog(@"success");
+        } else {
+            NSLog(@"error: %@", [exportSession error]);
+            //error: Error Domain=AVFoundationErrorDomain Code=-11800 "The operation could not be completed" UserInfo=0x2023b720 {NSLocalizedDescription=The operation could not be completed, NSUnderlyingError=0x2023bb70 "The operation couldn’t be completed. (OSStatus error -12780.)", NSLocalizedFailureReason=An unknown error occurred (-12780)}
+        }
+    }];
+}
+
+- (void)SlowMotion:(NSURL *)URl
+{
+    
+        AVURLAsset* videoAsset = [AVURLAsset URLAssetWithURL:URl options:nil]; //self.inputAsset;
+        
+        AVAsset *currentAsset = [AVAsset assetWithURL:URl];
+        
+        AVAssetTrack *vdoTrack = [[currentAsset tracksWithMediaType:AVMediaTypeVideo] objectAtIndex:0];
+        //create mutable composition
+        AVMutableComposition *mixComposition = [AVMutableComposition composition];
+        
+        AVMutableCompositionTrack *compositionVideoTrack = [mixComposition addMutableTrackWithMediaType:AVMediaTypeVideo preferredTrackID:kCMPersistentTrackID_Invalid];
+        AVMutableCompositionTrack *compositionAudioTrack = [mixComposition addMutableTrackWithMediaType:AVMediaTypeAudio preferredTrackID:kCMPersistentTrackID_Invalid];
+        
+        NSError *videoInsertError = nil;
+        BOOL videoInsertResult = [compositionVideoTrack insertTimeRange:CMTimeRangeMake(kCMTimeZero, videoAsset.duration)
+                                                                ofTrack:[[videoAsset tracksWithMediaType:AVMediaTypeVideo] objectAtIndex:0]
+                                                                 atTime:kCMTimeZero
+                                                                  error:&videoInsertError];
+        if (!videoInsertResult || nil != videoInsertError) {
+            //handle error
+            return;
+        }
+        
+        NSError *audioInsertError =nil;
+        BOOL audioInsertResult =[compositionAudioTrack insertTimeRange:CMTimeRangeMake(kCMTimeZero, videoAsset.duration)
+                                                               ofTrack:[[currentAsset tracksWithMediaType:AVMediaTypeAudio] objectAtIndex:0]
+                                                                atTime:kCMTimeZero
+                                                                 error:&audioInsertError];
+        
+        if (!audioInsertResult || nil != audioInsertError) {
+            //handle error
+            return;
+        }
+        
+        CMTime duration =kCMTimeZero;
+        duration=CMTimeAdd(duration, currentAsset.duration);
+        //slow down whole video by 2.0
+        double videoScaleFactor = 2.0;
+        CMTime videoDuration = videoAsset.duration;
+        
+        [compositionVideoTrack scaleTimeRange:CMTimeRangeMake(kCMTimeZero, videoDuration)
+                                   toDuration:CMTimeMake(videoDuration.value*videoScaleFactor, videoDuration.timescale)];
+        [compositionAudioTrack scaleTimeRange:CMTimeRangeMake(kCMTimeZero, videoDuration)
+                                   toDuration:CMTimeMake(videoDuration.value*videoScaleFactor, videoDuration.timescale)];
+        [compositionVideoTrack setPreferredTransform:vdoTrack.preferredTransform];
+        
+        //    NSArray *dirPaths = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
+        //    NSString *docsDir = [dirPaths objectAtIndex:0];
+        //    NSString *outputFilePath = [docsDir stringByAppendingPathComponent:[NSString stringWithFormat:@"slowMotion.mov"]];
+        //    if ([[NSFileManager defaultManager] fileExistsAtPath:outputFilePath])
+        //        [[NSFileManager defaultManager] removeItemAtPath:outputFilePath error:nil];
+        //    NSURL *_filePath = [NSURL fileURLWithPath:outputFilePath];
+        
+        //export WHAT IS THIS
+    
+    NSArray *paths = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
+    NSString *documentsDirectory = [paths objectAtIndex:0];
+    
+    NSString *documentsDirectoryMovies = [documentsDirectory stringByAppendingPathComponent:@"/movies"];
+    NSString *endPath = [URl lastPathComponent];
+    NSFileManager *manager = [NSFileManager defaultManager];
+    NSError *error = nil;
+    [manager removeItemAtPath:[documentsDirectoryMovies stringByAppendingPathComponent:endPath]
+                            error:&error];
+    if(error) {
+        //an error occurred...
+        NSLog(@"%@", [error localizedDescription]);
+    }
+    
+
+    
+        AVAssetExportSession *exportSession = [[AVAssetExportSession alloc] initWithAsset:mixComposition presetName:AVAssetExportPresetLowQuality];
+        
+        //exportSession.outputURL = [URl URLByAppendingPathExtension:@"slo"];
+    exportSession.outputURL = URl;
+        exportSession.outputFileType = AVFileTypeQuickTimeMovie;
+        exportSession.shouldOptimizeForNetworkUse = YES;
+
+        [exportSession exportAsynchronouslyWithCompletionHandler:^(void) {
+            if (exportSession.status == AVAssetExportSessionStatusCompleted) {
+                NSLog(@"success");
+            } else {
+                NSLog(@"error: %@", [exportSession error]);
+                //error: Error Domain=AVFoundationErrorDomain Code=-11800 "The operation could not be completed" UserInfo=0x2023b720 {NSLocalizedDescription=The operation could not be completed, NSUnderlyingError=0x2023bb70 "The operation couldn’t be completed. (OSStatus error -12780.)", NSLocalizedFailureReason=An unknown error occurred (-12780)}
+            }
+        }];
+}
+
+//- (void)SlowMotion:(NSURL *)URl
+//{
+//    AVURLAsset* videoAsset = [AVURLAsset URLAssetWithURL:URl options:nil]; //self.inputAsset;
+//    
+//    AVAsset *currentAsset = [AVAsset assetWithURL:URl];
+//    AVAssetTrack *vdoTrack = [[currentAsset tracksWithMediaType:AVMediaTypeVideo] objectAtIndex:0];
+//    //create mutable composition
+//    AVMutableComposition *mixComposition = [AVMutableComposition composition];
+//    
+//    AVMutableCompositionTrack *compositionVideoTrack = [mixComposition addMutableTrackWithMediaType:AVMediaTypeVideo preferredTrackID:kCMPersistentTrackID_Invalid];
+//    AVMutableCompositionTrack *compositionAudioTrack = [mixComposition addMutableTrackWithMediaType:AVMediaTypeAudio preferredTrackID:kCMPersistentTrackID_Invalid];
+//    
+//    NSError *videoInsertError = nil;
+//    BOOL videoInsertResult = [compositionVideoTrack insertTimeRange:CMTimeRangeMake(kCMTimeZero, videoAsset.duration)
+//                                                            ofTrack:[[videoAsset tracksWithMediaType:AVMediaTypeVideo] objectAtIndex:0]
+//                                                             atTime:kCMTimeZero
+//                                                              error:&videoInsertError];
+//    if (!videoInsertResult || nil != videoInsertError) {
+//        //handle error
+//        return;
+//    }
+//    
+//    NSError *audioInsertError =nil;
+//    BOOL audioInsertResult =[compositionAudioTrack insertTimeRange:CMTimeRangeMake(kCMTimeZero, videoAsset.duration)
+//                                                           ofTrack:[[currentAsset tracksWithMediaType:AVMediaTypeAudio] objectAtIndex:0]
+//                                                            atTime:kCMTimeZero
+//                                                             error:&audioInsertError];
+//    
+//    if (!audioInsertResult || nil != audioInsertError) {
+//        //handle error
+//        return;
+//    }
+//    
+//    CMTime duration =kCMTimeZero;
+//    duration=CMTimeAdd(duration, currentAsset.duration);
+//    //slow down whole video by 2.0
+//    double videoScaleFactor = 2.0;
+//    CMTime videoDuration = videoAsset.duration;
+//    
+//    [compositionVideoTrack scaleTimeRange:CMTimeRangeMake(kCMTimeZero, videoDuration)
+//                               toDuration:CMTimeMake(videoDuration.value*videoScaleFactor, videoDuration.timescale)];
+//    [compositionAudioTrack scaleTimeRange:CMTimeRangeMake(kCMTimeZero, videoDuration)
+//                               toDuration:CMTimeMake(videoDuration.value*videoScaleFactor, videoDuration.timescale)];
+//    [compositionVideoTrack setPreferredTransform:vdoTrack.preferredTransform];
+//    
+//    NSArray *dirPaths = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
+//    NSString *docsDir = [dirPaths objectAtIndex:0];
+//    NSString *outputFilePath = [docsDir stringByAppendingPathComponent:[NSString stringWithFormat:@"slowMotion.mov"]];
+//    if ([[NSFileManager defaultManager] fileExistsAtPath:outputFilePath])
+//        [[NSFileManager defaultManager] removeItemAtPath:outputFilePath error:nil];
+//    NSURL *_filePath = [NSURL fileURLWithPath:outputFilePath];
+//    
+//    //export WHAT IS THIS
+//    AVAssetExportSession* assetExport = [[AVAssetExportSession alloc] initWithAsset:mixComposition
+//                                                                         presetName:AVAssetExportPresetLowQuality];
+//    assetExport.outputURL=_filePath;
+//    assetExport.outputFileType =           AVFileTypeQuickTimeMovie;
+//    exporter.shouldOptimizeForNetworkUse = YES;
+//    [assetExport exportAsynchronouslyWithCompletionHandler:^
+//     {
+//         
+//         switch ([assetExport status]) {
+//             case AVAssetExportSessionStatusFailed:
+//             {
+//                 NSLog(@"Export session faiied with error: %@", [assetExport error]);
+//                 dispatch_async(dispatch_get_main_queue(), ^{
+//                     // completion(nil);
+//                 });
+//             }
+//                 break;
+//             case AVAssetExportSessionStatusCompleted:
+//             {
+//                 
+//                 NSLog(@"Successful");
+//                 NSURL *outputURL = assetExport.outputURL;
+//                 
+//                 ALAssetsLibrary *library = [[ALAssetsLibrary alloc] init];
+//                 if ([library videoAtPathIsCompatibleWithSavedPhotosAlbum:outputURL]) {
+//                     
+//                     [self writeExportedVideoToAssetsLibrary:outputURL];
+//                 }
+//                 dispatch_async(dispatch_get_main_queue(), ^{
+//                     //                                            completion(_filePath);
+//                 });
+//                 
+//             }
+//                 break;
+//             default:
+//                 
+//                 break;
+//         }
+//         
+//         
+//     }];
+//)
+
 #pragma mark - AVCaptureFileOutputRecordingDelegate
 
 
@@ -412,6 +656,13 @@ typedef NS_ENUM( NSInteger, AVCamSetupResult ) {
    didFinishRecordingToOutputFileAtURL:(NSURL *)outputFileURL
                        fromConnections:(NSArray *)connections error:(NSError *)error
 {
+    dispatch_async( self.sessionQueue, ^{
+        
+        if (self.slowMoBool == YES){
+            [self SlowMotion:self.fileURL];
+        }
+        
+    });
     
 }
 

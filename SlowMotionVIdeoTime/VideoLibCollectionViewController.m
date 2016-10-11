@@ -37,44 +37,40 @@
     
     NSArray *paths = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES);
     NSString *documentsDirectory = [paths objectAtIndex:0];
-    //NSString *docsAndmovies = [[NSString alloc]init];
-    //docsAndmovies = [documentsDirectory stringByAppendingString:@"/movies"];
-    //BOOL fileOrDirectoryExists = [[NSFileManager defaultManager] fileExistsAtPath:docsAndmovies];
-    
-    //if (fileOrDirectoryExists == NO){
-        NSString *documentsDirectoryMovies = [documentsDirectory stringByAppendingPathComponent:@"/movies"];
-        
-        NSLog(@"%@", documentsDirectoryMovies);
-        
-        NSArray *filePathsArray = [[NSFileManager defaultManager] subpathsOfDirectoryAtPath:documentsDirectoryMovies  error:nil];
-        
-        NSLog(@"files array %@", filePathsArray);
-        
-        for (NSString *element in filePathsArray){
-            NSLog(@"%@", element);
-        }
-        
-        [self.filePaths addObjectsFromArray:filePathsArray];
-        
-        
-        [self.collectionView reloadData];
-//    } else {
-//        NSArray *filePathsArray = [[NSFileManager defaultManager] subpathsOfDirectoryAtPath:docsAndmovies  error:nil];
-//        
-//        NSLog(@"files array %@", filePathsArray);
-//        
-//        for (NSString *element in filePathsArray){
-//            NSLog(@"%@", element);
-//        }
-//        
-//        [self.filePaths addObjectsFromArray:filePathsArray];
-//        
-//        
-//        [self.collectionView reloadData];
-//    }
 
+    NSString *documentsDirectoryMovies = [documentsDirectory stringByAppendingPathComponent:@"/movies"];
     
+    NSLog(@"%@", documentsDirectoryMovies);
     
+    //DELETE ALL FILES IN MOVIES DIRECTORY
+//    NSFileManager *manager = [NSFileManager defaultManager];
+//    NSError *error = nil;
+//    NSArray *files = [manager contentsOfDirectoryAtPath:documentsDirectoryMovies
+//                                                  error:&error];
+//    if(error) {
+//        //deal with error and bail.
+//    }
+//    
+//    for(NSString *file in files) {
+//        [manager removeItemAtPath:[documentsDirectoryMovies stringByAppendingPathComponent:file]
+//                            error:&error];
+//        if(error) {
+//            //an error occurred...
+//        }
+//    }
+    
+    NSArray *filePathsArray = [[NSFileManager defaultManager] subpathsOfDirectoryAtPath:documentsDirectoryMovies  error:nil];
+    
+    NSLog(@"files array %@", filePathsArray);
+    
+    for (NSString *element in filePathsArray){
+        NSLog(@"%@", element);
+    }
+    
+    [self.filePaths removeAllObjects];
+    
+    [self.filePaths addObjectsFromArray:filePathsArray];
+    [self.collectionView reloadData];
 }
 
 - (NSInteger)numberOfSectionsInCollectionView:(UICollectionView *)collectionView {

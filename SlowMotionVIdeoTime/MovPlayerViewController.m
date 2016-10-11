@@ -54,6 +54,9 @@
     
     self.asset = [AVURLAsset assetWithURL:self.fileURL];
     
+    NSLog(@"seconds = %f", CMTimeGetSeconds(self.asset.duration));
+
+    
     self.playerItem = [AVPlayerItem playerItemWithAsset:self.asset];
 
     //ORDER OF OPERATIONS MISTAKE MADE HERE
